@@ -1,0 +1,24 @@
+/* Scroll orizzontale per tabelle su mobile */
+.md-typeset table:not([class]) {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Larghezza minima colonne per leggibilità */
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+  min-width: 150px;
+}
+
+/* Prima colonna (Paper/Fonte) più larga */
+.md-typeset table:not([class]) th:first-child,
+.md-typeset table:not([class]) td:first-child {
+  min-width: 280px;
+}
+
+/* Migliore leggibilità righe alternate */
+.md-typeset table:not([class]) tbody tr:nth-child(even) {
+  background-color: var(--md-default-bg-color--light);
+}

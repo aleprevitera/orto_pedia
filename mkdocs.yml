@@ -1,0 +1,78 @@
+site_name: OrtoPedia
+site_description: Repository evidence-based per condizioni ortopedico-fisiatriche
+site_url: https://aleprevitera.github.io/orto_pedia/
+repo_name: aleprevitera/orto_pedia
+repo_url: https://github.com/aleprevitera/orto_pedia
+
+theme:
+  name: material
+  language: it
+  palette:
+    - scheme: default
+      primary: deep orange
+      accent: red
+      toggle:
+        icon: material/brightness-7
+        name: Passa alla modalità scura
+    - scheme: slate
+      primary: deep orange
+      accent: red
+      toggle:
+        icon: material/brightness-4
+        name: Passa alla modalità chiara
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - search.highlight
+    - search.suggest
+    - content.tooltips
+    - toc.follow
+  icon:
+    logo: material/medical-bag
+
+plugins:
+  - search:
+      lang: it
+  - tags:
+      tags_file: tags.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - tables
+  - attr_list
+  - md_in_html
+  - meta
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - abbr
+  - pymdownx.snippets:
+      auto_append:
+        - docs/includes/abbreviations.md
+
+hooks:
+  - hooks/auto_index.py
+
+extra_css:
+  - assets/extra.css
+
+nav:
+  - Home: index.md
+  - Rachide: rachide/
+  - Spalla: spalla/
+  - Ginocchio: ginocchio/
+  - Anca: anca/
+  - Piede & Caviglia: piede-caviglia/
+  - Farmacologia: farmacologia/
+  - Riabilitazione: riabilitazione/
+  - Imaging: imaging-diagnostica/
+  - Pain Management: pain-management/
+  - Tag: tags.md
