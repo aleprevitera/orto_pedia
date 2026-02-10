@@ -1,3 +1,8 @@
+/* Font globale */
+:root {
+  --md-text-font: "Noto Sans", sans-serif;
+}
+
 /* Scroll orizzontale per tabelle su mobile */
 .md-typeset table:not([class]) {
   display: block;
@@ -16,6 +21,12 @@
 .md-typeset table:not([class]) th:first-child,
 .md-typeset table:not([class]) td:first-child {
   min-width: 280px;
+}
+
+/* Testo admonitions più leggibile */
+.md-typeset .admonition,
+.md-typeset details {
+  font-size: 0.8rem;
 }
 
 /* Migliore leggibilità righe alternate */

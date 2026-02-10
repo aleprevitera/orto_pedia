@@ -21,6 +21,7 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Passa alla modalità chiara
+  font: false
   features:
     - navigation.tabs
     - navigation.sections
@@ -66,6 +67,7 @@ extra:
   generator: false
 
 extra_css:
+  - https://fonts.googleapis.com/css2?family=Noto+Sans+Chorasmian&display=swap
   - assets/extra.css
 
 nav:
