@@ -5,7 +5,7 @@ tags:
   - riabilitazione
 ---
 
-# Infiltrazioni di Corticosteroidi vs Fisioterapia nella Capsulite Adesiva: Effetto Tempo-Dipendente
+# Infiltrazioni di corticosteroidi vs fisioterapia nella capsulite adesiva: effetto tempo-dipendente
 
 !!! question "Domanda"
     Le iniezioni di corticosteroidi sono superiori alla fisioterapia nel trattamento dell'adhesive capsulitis della spalla, e questa superiorità persiste nel tempo?
