@@ -6,6 +6,7 @@ repo_url: https://github.com/aleprevitera/orto_pedia
 
 theme:
   name: material
+  custom_dir: overrides
   language: it
   palette:
     - scheme: default
@@ -60,6 +61,9 @@ markdown_extensions:
 
 hooks:
   - hooks/auto_index.py
+
+extra:
+  generator: false
 
 extra_css:
   - assets/extra.css
