@@ -127,26 +127,28 @@ class _ContentBlock:
 
 class _Response:
     def __init__(self, data: dict):
-        text = data["choices"][0]["message"]["content"]
-        self.content = [_ContentBlock(text)]
+        self.content = [_ContentBlock(data["output_text"])]
 
 
-class _ChatCompletions:
+class _Responses:
     def __init__(self, api_key: str):
         self._api_key = api_key
 
     def create(self, *, model: str, system: str, messages: list, **_kwargs):
-        # OpenAI: system prompt va come primo messaggio
-        oai_messages = [{"role": "system", "content": system}] + messages
+        # Responses API: instructions + input
+        # messages è [{role: "user", content: "..."}] — estraiamo il content
         payload = json.dumps({
             "model": model,
-            "messages": oai_messages,
+            "instructions": system,
+            "input": messages[0]["content"] if len(messages) == 1
+                     else messages,
+            "store": False,
         }).encode()
 
         last_exc: Exception | None = None
         for attempt in range(3):
             req = urllib.request.Request(
-                "https://api.openai.com/v1/chat/completions",
+                "https://api.openai.com/v1/responses",
                 data=payload,
                 method="POST",
             )
@@ -172,10 +174,10 @@ class _ChatCompletions:
 
 
 class LLMClient:
-    """Client OpenAI via urllib (no httpx)."""
+    """Client OpenAI Responses API via urllib."""
 
     def __init__(self, api_key: str):
-        self.messages = _ChatCompletions(api_key)
+        self.messages = _Responses(api_key)
 
 
 # ─── Raccolta da RSS ─────────────────────────────────────────────────────────
