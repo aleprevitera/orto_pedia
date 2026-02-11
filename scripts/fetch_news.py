@@ -95,8 +95,8 @@ QUERIES: list[str] = [
 RELEVANCE_THRESHOLD = 7
 MODEL = "gpt-5-nano-2025-08-07"
 DAYS_BACK = 7
-MAX_RESULTS_PER_QUERY = 10
-BATCH_SIZE = 10  # Paper per chiamata API
+MAX_RESULTS_PER_QUERY = 1
+BATCH_SIZE = 20  # Paper per chiamata API
 MAX_ARTICLES = 25  # Massimo articoli nel digest finale (top per score)
 MAX_TAGS = 10  # Massimo tag aggregati nel frontmatter
 CACHE_FILE = Path(__file__).resolve().parent / ".news_cache.json"
@@ -127,28 +127,26 @@ class _ContentBlock:
 
 class _Response:
     def __init__(self, data: dict):
-        self.content = [_ContentBlock(data["output_text"])]
+        text = data["choices"][0]["message"]["content"]
+        self.content = [_ContentBlock(text)]
 
 
-class _Responses:
+class _ChatCompletions:
     def __init__(self, api_key: str):
         self._api_key = api_key
 
     def create(self, *, model: str, system: str, messages: list, **_kwargs):
-        # Responses API: instructions + input
-        # messages è [{role: "user", content: "..."}] — estraiamo il content
+        # OpenAI: system prompt va come primo messaggio
+        oai_messages = [{"role": "system", "content": system}] + messages
         payload = json.dumps({
             "model": model,
-            "instructions": system,
-            "input": messages[0]["content"] if len(messages) == 1
-                     else messages,
-            "store": False,
+            "messages": oai_messages,
         }).encode()
 
         last_exc: Exception | None = None
         for attempt in range(3):
             req = urllib.request.Request(
-                "https://api.openai.com/v1/responses",
+                "https://api.openai.com/v1/chat/completions",
                 data=payload,
                 method="POST",
             )
@@ -156,7 +154,7 @@ class _Responses:
             req.add_header("Content-Type", "application/json")
             req.add_header("User-Agent", NCBI_USER_AGENT)
             try:
-                with urllib.request.urlopen(req, timeout=300) as resp:
+                with urllib.request.urlopen(req, timeout=120) as resp:
                     return _Response(json.loads(resp.read()))
             except urllib.error.HTTPError as e:
                 body = e.read().decode(errors="replace")
@@ -174,10 +172,10 @@ class _Responses:
 
 
 class LLMClient:
-    """Client OpenAI Responses API via urllib."""
+    """Client OpenAI via urllib (no httpx)."""
 
     def __init__(self, api_key: str):
-        self.messages = _Responses(api_key)
+        self.messages = _ChatCompletions(api_key)
 
 
 # ─── Raccolta da RSS ─────────────────────────────────────────────────────────
