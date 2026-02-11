@@ -706,11 +706,7 @@ def main():
         log.error("Variabile ANTHROPIC_API_KEY non impostata")
         sys.exit(1)
 
-    client = anthropic.Anthropic(
-        api_key=api_key,
-        max_retries=5,
-        timeout=120.0,
-    )
+    client = anthropic.Anthropic(api_key=api_key)
 
     # ── 0. Connectivity pre-check ────────────────────────────────────────
     log.info("Verifica connettività...")
