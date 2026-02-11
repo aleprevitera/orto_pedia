@@ -29,9 +29,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import anthropic
 import feedparser
-import httpx
 from bs4 import BeautifulSoup
 
 # ─── Configurazione ──────────────────────────────────────────────────────────
@@ -115,6 +113,71 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger("fetch_news")
+
+
+# ─── Client Anthropic via urllib (bypassa httpx) ─────────────────────────────
+
+
+class AnthropicAPIError(Exception):
+    """Errore API Anthropic."""
+
+
+class _ContentBlock:
+    def __init__(self, text: str):
+        self.text = text
+
+
+class _Response:
+    def __init__(self, data: dict):
+        self.content = [_ContentBlock(c["text"]) for c in data["content"]]
+
+
+class _Messages:
+    def __init__(self, api_key: str):
+        self._api_key = api_key
+
+    def create(self, *, model: str, max_tokens: int, system: str, messages: list):
+        payload = json.dumps({
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": messages,
+        }).encode()
+
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            req = urllib.request.Request(
+                "https://api.anthropic.com/v1/messages",
+                data=payload,
+                method="POST",
+            )
+            req.add_header("x-api-key", self._api_key)
+            req.add_header("anthropic-version", "2023-06-01")
+            req.add_header("content-type", "application/json")
+            req.add_header("User-Agent", NCBI_USER_AGENT)
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    return _Response(json.loads(resp.read()))
+            except urllib.error.HTTPError as e:
+                body = e.read().decode(errors="replace")
+                raise AnthropicAPIError(f"HTTP {e.code}: {body}") from e
+            except Exception as e:
+                last_exc = e
+                wait = 2**attempt
+                log.warning(
+                    "Anthropic attempt %d/3 failed (%s: %s) — retry in %ds",
+                    attempt + 1, type(e).__name__, e, wait,
+                )
+                time.sleep(wait)
+
+        raise AnthropicAPIError(str(last_exc)) from last_exc
+
+
+class ClaudeClient:
+    """Drop-in replacement per ClaudeClient usando urllib."""
+
+    def __init__(self, api_key: str):
+        self.messages = _Messages(api_key)
 
 
 # ─── Raccolta da RSS ─────────────────────────────────────────────────────────
@@ -402,7 +465,7 @@ Nessun altro testo."""
 
 
 def triage_papers(
-    client: anthropic.Anthropic, papers: list[dict]
+    client: ClaudeClient, papers: list[dict]
 ) -> list[dict]:
     """Screening rapido: una sola chiamata AI con solo i titoli.
 
@@ -439,7 +502,7 @@ def triage_papers(
             len(papers),
             len(parsed) if isinstance(parsed, list) else 0,
         )
-    except (json.JSONDecodeError, anthropic.APIError) as e:
+    except (json.JSONDecodeError, AnthropicAPIError) as e:
         log.warning("Triage fallito (%s) — skip triage", e)
 
     return papers  # Se il triage fallisce, passa tutto
@@ -509,7 +572,7 @@ def _parse_ai_response(raw: str) -> dict | list | None:
     return json.loads(raw)
 
 
-def analyze_paper(client: anthropic.Anthropic, paper: dict) -> dict | None:
+def analyze_paper(client: ClaudeClient, paper: dict) -> dict | None:
     """Analizza un singolo paper con Claude. Fallback per batch falliti."""
     if not paper["abstract"]:
         return None
@@ -528,13 +591,13 @@ def analyze_paper(client: anthropic.Anthropic, paper: dict) -> dict | None:
             messages=[{"role": "user", "content": user_msg}],
         )
         return _parse_ai_response(response.content[0].text)
-    except (json.JSONDecodeError, anthropic.APIError) as e:
+    except (json.JSONDecodeError, AnthropicAPIError) as e:
         log.warning("  Errore singolo per '%s': %s", paper["title"][:50], e)
         return None
 
 
 def analyze_batch(
-    client: anthropic.Anthropic, papers: list[dict]
+    client: ClaudeClient, papers: list[dict]
 ) -> list[dict | None]:
     """Analizza un batch di paper in una singola chiamata API.
 
@@ -574,7 +637,7 @@ def analyze_batch(
             len(papers),
             len(parsed),
         )
-    except (json.JSONDecodeError, anthropic.APIError) as e:
+    except (json.JSONDecodeError, AnthropicAPIError) as e:
         log.warning("  Batch fallito (%s) — fallback singolo", e)
 
     # Fallback: analisi individuale
@@ -585,7 +648,7 @@ def analyze_batch(
     return results
 
 
-def generate_tldr(client: anthropic.Anthropic, analyses: list[dict]) -> str:
+def generate_tldr(client: ClaudeClient, analyses: list[dict]) -> str:
     """Genera un TL;DR settimanale dai paper analizzati."""
     summaries = "\n".join(
         f"- {a['title_it']} (rilevanza: {a['relevance_score']}/10)"
@@ -604,7 +667,7 @@ def generate_tldr(client: anthropic.Anthropic, analyses: list[dict]) -> str:
             ],
         )
         return response.content[0].text.strip()
-    except anthropic.APIError as e:
+    except AnthropicAPIError as e:
         log.error("Errore generazione TL;DR: %s", e)
         return "TL;DR non disponibile questa settimana."
 
@@ -707,13 +770,7 @@ def main():
         log.error("Variabile ANTHROPIC_API_KEY non impostata")
         sys.exit(1)
 
-    client = anthropic.Anthropic(
-        api_key=api_key,
-        http_client=httpx.Client(
-            timeout=httpx.Timeout(120.0, connect=10.0),
-            transport=httpx.HTTPTransport(retries=3),
-        ),
-    )
+    client = ClaudeClient(api_key=api_key)
 
     # ── 0. Connectivity pre-check ────────────────────────────────────────
     log.info("Verifica connettività...")
