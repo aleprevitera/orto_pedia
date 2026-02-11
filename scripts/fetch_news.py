@@ -93,7 +93,7 @@ QUERIES: list[str] = [
 ]
 
 RELEVANCE_THRESHOLD = 7
-MODEL = "claude-haiku-4-5-20251001"
+MODEL = "gpt-5-nano-2025-08-07"
 MAX_TOKENS_ANALYSIS = 1000
 MAX_TOKENS_TLDR = 500
 DAYS_BACK = 7
@@ -115,11 +115,11 @@ logging.basicConfig(
 log = logging.getLogger("fetch_news")
 
 
-# ─── Client Anthropic via urllib (bypassa httpx) ─────────────────────────────
+# ─── Client OpenAI via urllib ─────────────────────────────────────────────────
 
 
-class AnthropicAPIError(Exception):
-    """Errore API Anthropic."""
+class LLMAPIError(Exception):
+    """Errore API LLM."""
 
 
 class _ContentBlock:
@@ -129,55 +129,56 @@ class _ContentBlock:
 
 class _Response:
     def __init__(self, data: dict):
-        self.content = [_ContentBlock(c["text"]) for c in data["content"]]
+        text = data["choices"][0]["message"]["content"]
+        self.content = [_ContentBlock(text)]
 
 
-class _Messages:
+class _ChatCompletions:
     def __init__(self, api_key: str):
         self._api_key = api_key
 
     def create(self, *, model: str, max_tokens: int, system: str, messages: list):
+        # OpenAI: system prompt va come primo messaggio
+        oai_messages = [{"role": "system", "content": system}] + messages
         payload = json.dumps({
             "model": model,
-            "max_tokens": max_tokens,
-            "system": system,
-            "messages": messages,
+            "max_completion_tokens": max_tokens,
+            "messages": oai_messages,
         }).encode()
 
         last_exc: Exception | None = None
         for attempt in range(3):
             req = urllib.request.Request(
-                "https://api.anthropic.com/v1/messages",
+                "https://api.openai.com/v1/chat/completions",
                 data=payload,
                 method="POST",
             )
-            req.add_header("x-api-key", self._api_key)
-            req.add_header("anthropic-version", "2023-06-01")
-            req.add_header("content-type", "application/json")
+            req.add_header("Authorization", f"Bearer {self._api_key}")
+            req.add_header("Content-Type", "application/json")
             req.add_header("User-Agent", NCBI_USER_AGENT)
             try:
                 with urllib.request.urlopen(req, timeout=120) as resp:
                     return _Response(json.loads(resp.read()))
             except urllib.error.HTTPError as e:
                 body = e.read().decode(errors="replace")
-                raise AnthropicAPIError(f"HTTP {e.code}: {body}") from e
+                raise LLMAPIError(f"HTTP {e.code}: {body}") from e
             except Exception as e:
                 last_exc = e
                 wait = 2**attempt
                 log.warning(
-                    "Anthropic attempt %d/3 failed (%s: %s) — retry in %ds",
+                    "OpenAI attempt %d/3 failed (%s: %s) — retry in %ds",
                     attempt + 1, type(e).__name__, e, wait,
                 )
                 time.sleep(wait)
 
-        raise AnthropicAPIError(str(last_exc)) from last_exc
+        raise LLMAPIError(str(last_exc)) from last_exc
 
 
-class ClaudeClient:
-    """Drop-in replacement per ClaudeClient usando urllib."""
+class LLMClient:
+    """Client OpenAI via urllib (no httpx)."""
 
     def __init__(self, api_key: str):
-        self.messages = _Messages(api_key)
+        self.messages = _ChatCompletions(api_key)
 
 
 # ─── Raccolta da RSS ─────────────────────────────────────────────────────────
@@ -465,7 +466,7 @@ Nessun altro testo."""
 
 
 def triage_papers(
-    client: ClaudeClient, papers: list[dict]
+    client: LLMClient, papers: list[dict]
 ) -> list[dict]:
     """Screening rapido: una sola chiamata AI con solo i titoli.
 
@@ -502,7 +503,7 @@ def triage_papers(
             len(papers),
             len(parsed) if isinstance(parsed, list) else 0,
         )
-    except (json.JSONDecodeError, AnthropicAPIError) as e:
+    except (json.JSONDecodeError, LLMAPIError) as e:
         log.warning("Triage fallito (%s) — skip triage", e)
 
     return papers  # Se il triage fallisce, passa tutto
@@ -572,7 +573,7 @@ def _parse_ai_response(raw: str) -> dict | list | None:
     return json.loads(raw)
 
 
-def analyze_paper(client: ClaudeClient, paper: dict) -> dict | None:
+def analyze_paper(client: LLMClient, paper: dict) -> dict | None:
     """Analizza un singolo paper con Claude. Fallback per batch falliti."""
     if not paper["abstract"]:
         return None
@@ -591,13 +592,13 @@ def analyze_paper(client: ClaudeClient, paper: dict) -> dict | None:
             messages=[{"role": "user", "content": user_msg}],
         )
         return _parse_ai_response(response.content[0].text)
-    except (json.JSONDecodeError, AnthropicAPIError) as e:
+    except (json.JSONDecodeError, LLMAPIError) as e:
         log.warning("  Errore singolo per '%s': %s", paper["title"][:50], e)
         return None
 
 
 def analyze_batch(
-    client: ClaudeClient, papers: list[dict]
+    client: LLMClient, papers: list[dict]
 ) -> list[dict | None]:
     """Analizza un batch di paper in una singola chiamata API.
 
@@ -637,7 +638,7 @@ def analyze_batch(
             len(papers),
             len(parsed),
         )
-    except (json.JSONDecodeError, AnthropicAPIError) as e:
+    except (json.JSONDecodeError, LLMAPIError) as e:
         log.warning("  Batch fallito (%s) — fallback singolo", e)
 
     # Fallback: analisi individuale
@@ -648,7 +649,7 @@ def analyze_batch(
     return results
 
 
-def generate_tldr(client: ClaudeClient, analyses: list[dict]) -> str:
+def generate_tldr(client: LLMClient, analyses: list[dict]) -> str:
     """Genera un TL;DR settimanale dai paper analizzati."""
     summaries = "\n".join(
         f"- {a['title_it']} (rilevanza: {a['relevance_score']}/10)"
@@ -667,7 +668,7 @@ def generate_tldr(client: ClaudeClient, analyses: list[dict]) -> str:
             ],
         )
         return response.content[0].text.strip()
-    except AnthropicAPIError as e:
+    except LLMAPIError as e:
         log.error("Errore generazione TL;DR: %s", e)
         return "TL;DR non disponibile questa settimana."
 
@@ -765,12 +766,12 @@ def main():
     )
     args = parser.parse_args()
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        log.error("Variabile ANTHROPIC_API_KEY non impostata")
+        log.error("Variabile OPENAI_API_KEY non impostata")
         sys.exit(1)
 
-    client = ClaudeClient(api_key=api_key)
+    client = LLMClient(api_key=api_key)
 
     # ── 0. Connectivity pre-check ────────────────────────────────────────
     log.info("Verifica connettività...")
@@ -778,7 +779,7 @@ def main():
 
     for label, check_url in [
         ("NCBI", "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/einfo.fcgi"),
-        ("Anthropic", "https://api.anthropic.com"),
+        ("OpenAI", "https://api.openai.com"),
     ]:
         try:
             req = urllib.request.Request(check_url)
