@@ -22,6 +22,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -724,6 +725,9 @@ def main():
             req.add_header("User-Agent", NCBI_USER_AGENT)
             with urllib.request.urlopen(req, timeout=15):
                 log.info("  %s: OK", label)
+        except urllib.error.HTTPError as e:
+            # HTTP error (401, 404, etc.) means the server IS reachable
+            log.info("  %s: OK (HTTP %d)", label, e.code)
         except Exception as e:
             log.error("  %s: UNREACHABLE (%s: %s)", label, type(e).__name__, e)
             connectivity_ok = False
