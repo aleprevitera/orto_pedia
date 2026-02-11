@@ -96,7 +96,7 @@ RELEVANCE_THRESHOLD = 7
 MODEL = "gpt-5-nano-2025-08-07"
 DAYS_BACK = 7
 MAX_RESULTS_PER_QUERY = 20
-BATCH_SIZE = 5  # Paper per chiamata API (riduce costi system prompt)
+BATCH_SIZE = 20  # Paper per chiamata API
 MAX_ARTICLES = 25  # Massimo articoli nel digest finale (top per score)
 MAX_TAGS = 10  # Massimo tag aggregati nel frontmatter
 CACHE_FILE = Path(__file__).resolve().parent / ".news_cache.json"
@@ -445,66 +445,6 @@ def save_cache(cache: dict) -> None:
     )
 
 
-# ─── Triage (screening rapido) ────────────────────────────────────────────────
-
-SYSTEM_PROMPT_TRIAGE = """\
-Sei un editor medico per orto_pedia (ortopedia e riabilitazione).
-Ti fornisco una lista numerata di titoli di studi scientifici.
-
-Per ciascun titolo, rispondi 1 se è potenzialmente rilevante per la pratica \
-clinica ortopedica, fisiatrica o riabilitativa, oppure 0 se chiaramente non \
-pertinente (es: oncologia pura, pediatria non MSK, veterinaria, genetica di \
-base, etc.).
-
-Nel dubbio, rispondi 1 (includi).
-
-Rispondi SOLO con un array JSON di 0 e 1, nello stesso ordine dei titoli. \
-Nessun altro testo."""
-
-
-def triage_papers(
-    client: LLMClient, papers: list[dict]
-) -> list[dict]:
-    """Screening rapido: una sola chiamata AI con solo i titoli.
-
-    Ritorna solo i paper considerati potenzialmente rilevanti.
-    """
-    if not papers:
-        return []
-
-    # Costruisci lista titoli numerata
-    titles = "\n".join(
-        f"{i}. {p['title']}" for i, p in enumerate(papers, 1)
-    )
-
-    try:
-        response = client.messages.create(
-            model=MODEL,
-            system=SYSTEM_PROMPT_TRIAGE,
-            messages=[{"role": "user", "content": titles}],
-        )
-        parsed = _parse_ai_response(response.content[0].text)
-
-        if isinstance(parsed, list) and len(parsed) == len(papers):
-            kept = [p for p, flag in zip(papers, parsed) if flag == 1]
-            log.info(
-                "Triage: %d/%d paper passano lo screening",
-                len(kept),
-                len(papers),
-            )
-            return kept
-
-        log.warning(
-            "Triage: attesi %d flag, ricevuti %d — skip triage",
-            len(papers),
-            len(parsed) if isinstance(parsed, list) else 0,
-        )
-    except (json.JSONDecodeError, LLMAPIError) as e:
-        log.warning("Triage fallito (%s) — skip triage", e)
-
-    return papers  # Se il triage fallisce, passa tutto
-
-
 # ─── Analisi AI ──────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT_ANALYSIS = """\
@@ -823,7 +763,7 @@ def main():
         len(all_papers),
     )
 
-    # ── 3. Triage: screening rapido sui titoli ──────────────────────
+    # ── 3. Analisi AI a batch ─────────────────────────────────────────
     new_results: list[tuple[dict, dict | None]] = []
 
     if to_analyze:
@@ -835,27 +775,13 @@ def main():
             cache[_cache_key(p)] = {"relevant": False}
 
         log.info("=" * 50)
-        log.info("TRIAGE (screening titoli)")
-        log.info("=" * 50)
-
-        triaged = triage_papers(client, with_abstract)
-
-        # Segna come non rilevanti i paper scartati dal triage
-        triaged_set = {id(p) for p in triaged}
-        for p in with_abstract:
-            if id(p) not in triaged_set:
-                cache[_cache_key(p)] = {"relevant": False}
-
-    # ── 4. Analisi AI a batch (solo paper che passano il triage) ──
-        log.info("=" * 50)
         log.info("ANALISI AI (batch da %d)", BATCH_SIZE)
         log.info("=" * 50)
 
-        # Processa a batch solo i paper che hanno passato il triage
-        for batch_start in range(0, len(triaged), BATCH_SIZE):
-            batch = triaged[batch_start : batch_start + BATCH_SIZE]
+        for batch_start in range(0, len(with_abstract), BATCH_SIZE):
+            batch = with_abstract[batch_start : batch_start + BATCH_SIZE]
             batch_num = batch_start // BATCH_SIZE + 1
-            total_batches = (len(triaged) + BATCH_SIZE - 1) // BATCH_SIZE
+            total_batches = (len(with_abstract) + BATCH_SIZE - 1) // BATCH_SIZE
             log.info(
                 "Batch %d/%d (%d paper)",
                 batch_num,
