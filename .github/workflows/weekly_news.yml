@@ -1,0 +1,65 @@
+name: Weekly PubMed News
+
+on:
+  schedule:
+    # Ogni lunedì alle 8:00 UTC
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Data override (YYYY-MM-DD), default: oggi"
+        required: false
+      threshold:
+        description: "Soglia rilevanza minima (1-10), default: 5"
+        required: false
+        default: "5"
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-news:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore analysis cache
+        uses: actions/cache@v4
+        with:
+          path: scripts/.news_cache.json
+          key: news-cache-${{ github.run_id }}
+          restore-keys: news-cache-
+
+      - name: Fetch & analyze PubMed articles
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            ARGS="$ARGS --date ${{ github.event.inputs.date }}"
+          fi
+          if [ -n "${{ github.event.inputs.threshold }}" ]; then
+            ARGS="$ARGS --threshold ${{ github.event.inputs.threshold }}"
+          fi
+          python scripts/fetch_news.py $ARGS
+
+      - name: Commit & Push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/news/
+          if git diff --staged --quiet; then
+            echo "Nessun nuovo contenuto da committare."
+          else
+            DATE=$(date +%Y-%m-%d)
+            git commit -m "docs(news): rassegna settimanale ${DATE}"
+            git push
+          fi
