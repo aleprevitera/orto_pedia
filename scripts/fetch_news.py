@@ -94,8 +94,6 @@ QUERIES: list[str] = [
 
 RELEVANCE_THRESHOLD = 7
 MODEL = "gpt-5-nano-2025-08-07"
-MAX_TOKENS_ANALYSIS = 1000
-MAX_TOKENS_TLDR = 500
 DAYS_BACK = 7
 MAX_RESULTS_PER_QUERY = 20
 BATCH_SIZE = 5  # Paper per chiamata API (riduce costi system prompt)
@@ -137,12 +135,11 @@ class _ChatCompletions:
     def __init__(self, api_key: str):
         self._api_key = api_key
 
-    def create(self, *, model: str, max_tokens: int, system: str, messages: list):
+    def create(self, *, model: str, system: str, messages: list, **_kwargs):
         # OpenAI: system prompt va come primo messaggio
         oai_messages = [{"role": "system", "content": system}] + messages
         payload = json.dumps({
             "model": model,
-            "max_completion_tokens": max_tokens,
             "messages": oai_messages,
         }).encode()
 
@@ -483,7 +480,6 @@ def triage_papers(
     try:
         response = client.messages.create(
             model=MODEL,
-            max_tokens=len(papers) * 3 + 50,  # ~"0," per paper + margine
             system=SYSTEM_PROMPT_TRIAGE,
             messages=[{"role": "user", "content": titles}],
         )
@@ -587,7 +583,6 @@ def analyze_paper(client: LLMClient, paper: dict) -> dict | None:
     try:
         response = client.messages.create(
             model=MODEL,
-            max_tokens=MAX_TOKENS_ANALYSIS,
             system=SYSTEM_PROMPT_ANALYSIS,
             messages=[{"role": "user", "content": user_msg}],
         )
@@ -620,7 +615,6 @@ def analyze_batch(
     try:
         response = client.messages.create(
             model=MODEL,
-            max_tokens=MAX_TOKENS_ANALYSIS * len(papers),
             system=SYSTEM_PROMPT_ANALYSIS,
             messages=[{"role": "user", "content": user_msg}],
         )
@@ -658,7 +652,6 @@ def generate_tldr(client: LLMClient, analyses: list[dict]) -> str:
     try:
         response = client.messages.create(
             model=MODEL,
-            max_tokens=MAX_TOKENS_TLDR,
             system=SYSTEM_PROMPT_TLDR,
             messages=[
                 {

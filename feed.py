@@ -1,7 +1,7 @@
 import feedparser
 from bs4 import BeautifulSoup # Ti servirà: pip install beautifulsoup4
 
-feed = 'https://pubmed.ncbi.nlm.nih.gov/rss/search/1pk-02YRTTMOVSA2K6uB0gWkv4RwR0cqCNpYgchfLL10TCPMeY/?limit=20&utm_campaign=pubmed-2&fc=20260211034757'
+feed = ''
 
 d = feedparser.parse(feed)
 
@@ -31,8 +31,8 @@ def extract_paper_data(entry):
     
     return paper_data
 
-# Questo oggetto 'clean_data' è quello che poi passi nel prompt a Claude Haiku
-# Prompt: "Analizza questo paper: {clean_data['title']} \n {clean_data['abstract']}..."
 
 clean_data = [extract_paper_data(entry) for entry in d.entries]
-print(clean_data[0])
+
+# Questo oggetto 'clean_data' è quello che poi passi nel prompt a Claude Haiku
+# Prompt: "Analizza questo paper: {clean_data['title']} \n {clean_data['abstract']}..."
