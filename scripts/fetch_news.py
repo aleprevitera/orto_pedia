@@ -95,7 +95,7 @@ QUERIES: list[str] = [
 RELEVANCE_THRESHOLD = 7
 MODEL = "gpt-5-nano-2025-08-07"
 DAYS_BACK = 7
-MAX_RESULTS_PER_QUERY = 1
+MAX_RESULTS_PER_QUERY = 10
 BATCH_SIZE = 20  # Paper per chiamata API
 MAX_ARTICLES = 25  # Massimo articoli nel digest finale (top per score)
 MAX_TAGS = 10  # Massimo tag aggregati nel frontmatter
@@ -653,7 +653,7 @@ def build_markdown(date_str: str, analyses: list[dict], tldr: str) -> str:
         # Link e DOI
         link_parts = []
         if a.get("url"):
-            link_parts.append(f"[Articolo originale]({a['url']})")
+            link_parts.append(f'<a href="{a["url"]}" target="_blank">Articolo originale</a>')
         if a.get("doi"):
             link_parts.append(f"DOI: `{a['doi']}`")
         if link_parts:
