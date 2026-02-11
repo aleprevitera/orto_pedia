@@ -31,6 +31,7 @@ from pathlib import Path
 
 import anthropic
 import feedparser
+import httpx
 from bs4 import BeautifulSoup
 
 # ─── Configurazione ──────────────────────────────────────────────────────────
@@ -706,7 +707,13 @@ def main():
         log.error("Variabile ANTHROPIC_API_KEY non impostata")
         sys.exit(1)
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(
+        api_key=api_key,
+        http_client=httpx.Client(
+            timeout=httpx.Timeout(120.0, connect=10.0),
+            transport=httpx.HTTPTransport(retries=3),
+        ),
+    )
 
     # ── 0. Connectivity pre-check ────────────────────────────────────────
     log.info("Verifica connettività...")
