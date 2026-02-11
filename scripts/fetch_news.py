@@ -49,25 +49,46 @@ FEEDS: list[dict[str, str]] = [
 
 # Query PubMed via E-utilities (complemento ai feed RSS).
 # Cerca articoli degli ultimi DAYS_BACK giorni.
-# Usa [tiab] (title/abstract) oltre a [pt] per catturare articoli non ancora taggati.
+# Query ampie: tutti i tipi di studio clinicamente rilevanti, non solo review.
 QUERIES: list[str] = [
+    # Ortopedia chirurgica — artroprotesi, artroscopia, osteosintesi
     (
-        "(systematic review[pt] OR meta-analysis[pt] "
-        "OR systematic review[tiab] OR meta-analysis[tiab]) "
-        "AND (orthopedic OR orthopaedic) "
-        "AND (surgery OR rehabilitation OR physiotherapy)"
+        "(orthopedic surgery OR orthopaedic surgery OR arthroplasty "
+        "OR arthroscopy OR osteosynthesis OR fracture fixation) "
+        "AND (outcome OR technique OR comparison OR complication)"
     ),
+    # Distretti anatomici — ginocchio, anca, spalla
     (
-        "(systematic review[pt] OR meta-analysis[pt] "
-        "OR systematic review[tiab] OR meta-analysis[tiab]) "
-        "AND (knee OR hip OR shoulder OR spine OR ankle) "
-        "AND (arthroplasty OR arthroscopy OR physical therapy OR exercise)"
+        "(knee OR hip OR shoulder) "
+        "AND (rotator cuff OR ACL OR meniscus OR labrum "
+        "OR total replacement OR osteoarthritis) "
+        "AND (treatment OR surgery OR rehabilitation)"
     ),
+    # Rachide e dolore spinale
     (
-        "(systematic review[pt] OR meta-analysis[pt] "
-        "OR systematic review[tiab] OR meta-analysis[tiab]) "
-        "AND (musculoskeletal OR fracture OR tendon OR ligament) "
-        "AND (conservative treatment OR pain management OR rehabilitation)"
+        "(spine OR lumbar OR cervical OR disc herniation OR spinal stenosis "
+        "OR scoliosis OR spondylolisthesis) "
+        "AND (treatment OR surgery OR conservative OR injection)"
+    ),
+    # Riabilitazione e fisioterapia MSK
+    (
+        "(physical therapy OR physiotherapy OR exercise therapy "
+        "OR rehabilitation) "
+        "AND (musculoskeletal OR postoperative OR return to sport "
+        "OR tendinopathy OR muscle injury)"
+    ),
+    # Piede, caviglia, gomito, polso, mano
+    (
+        "(ankle OR foot OR elbow OR wrist OR hand) "
+        "AND (fracture OR ligament OR tendon OR arthroplasty "
+        "OR sprain OR instability) "
+        "AND (treatment OR outcome OR rehabilitation)"
+    ),
+    # Pain management MSK
+    (
+        "(musculoskeletal pain OR chronic pain OR neuropathic pain) "
+        "AND (injection OR PRP OR corticosteroid OR NSAID "
+        "OR hyaluronic acid OR shockwave)"
     ),
 ]
 
@@ -76,8 +97,10 @@ MODEL = "claude-haiku-4-5-20251001"
 MAX_TOKENS_ANALYSIS = 1000
 MAX_TOKENS_TLDR = 500
 DAYS_BACK = 7
-MAX_RESULTS_PER_QUERY = 15
+MAX_RESULTS_PER_QUERY = 20
 BATCH_SIZE = 5  # Paper per chiamata API (riduce costi system prompt)
+MAX_ARTICLES = 25  # Massimo articoli nel digest finale (top per score)
+MAX_TAGS = 10  # Massimo tag aggregati nel frontmatter
 CACHE_FILE = Path(__file__).resolve().parent / ".news_cache.json"
 
 # ─── Logging ─────────────────────────────────────────────────────────────────
@@ -323,6 +346,67 @@ def save_cache(cache: dict) -> None:
     )
 
 
+# ─── Triage (screening rapido) ────────────────────────────────────────────────
+
+SYSTEM_PROMPT_TRIAGE = """\
+Sei un editor medico per orto_pedia (ortopedia e riabilitazione).
+Ti fornisco una lista numerata di titoli di studi scientifici.
+
+Per ciascun titolo, rispondi 1 se è potenzialmente rilevante per la pratica \
+clinica ortopedica, fisiatrica o riabilitativa, oppure 0 se chiaramente non \
+pertinente (es: oncologia pura, pediatria non MSK, veterinaria, genetica di \
+base, etc.).
+
+Nel dubbio, rispondi 1 (includi).
+
+Rispondi SOLO con un array JSON di 0 e 1, nello stesso ordine dei titoli. \
+Nessun altro testo."""
+
+
+def triage_papers(
+    client: anthropic.Anthropic, papers: list[dict]
+) -> list[dict]:
+    """Screening rapido: una sola chiamata AI con solo i titoli.
+
+    Ritorna solo i paper considerati potenzialmente rilevanti.
+    """
+    if not papers:
+        return []
+
+    # Costruisci lista titoli numerata
+    titles = "\n".join(
+        f"{i}. {p['title']}" for i, p in enumerate(papers, 1)
+    )
+
+    try:
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=len(papers) * 3 + 50,  # ~"0," per paper + margine
+            system=SYSTEM_PROMPT_TRIAGE,
+            messages=[{"role": "user", "content": titles}],
+        )
+        parsed = _parse_ai_response(response.content[0].text)
+
+        if isinstance(parsed, list) and len(parsed) == len(papers):
+            kept = [p for p, flag in zip(papers, parsed) if flag == 1]
+            log.info(
+                "Triage: %d/%d paper passano lo screening",
+                len(kept),
+                len(papers),
+            )
+            return kept
+
+        log.warning(
+            "Triage: attesi %d flag, ricevuti %d — skip triage",
+            len(papers),
+            len(parsed) if isinstance(parsed, list) else 0,
+        )
+    except (json.JSONDecodeError, anthropic.APIError) as e:
+        log.warning("Triage fallito (%s) — skip triage", e)
+
+    return papers  # Se il triage fallisce, passa tutto
+
+
 # ─── Analisi AI ──────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT_ANALYSIS = """\
@@ -492,8 +576,15 @@ def generate_tldr(client: anthropic.Anthropic, analyses: list[dict]) -> str:
 
 def build_markdown(date_str: str, analyses: list[dict], tldr: str) -> str:
     """Costruisce il contenuto Markdown della rassegna settimanale."""
-    all_tags = sorted({tag for a in analyses for tag in a.get("tags", [])})
-    tags_yaml = "\n".join(f"  - {t}" for t in ["news"] + all_tags)
+    # Conta frequenza tag e tieni i più comuni (max MAX_TAGS)
+    tag_freq: dict[str, int] = {}
+    for a in analyses:
+        for tag in a.get("tags", []):
+            tag_freq[tag] = tag_freq.get(tag, 0) + 1
+    top_tags = [
+        t for t, _ in sorted(tag_freq.items(), key=lambda x: -x[1])
+    ][:MAX_TAGS]
+    tags_yaml = "\n".join(f"  - {t}" for t in ["news"] + top_tags)
 
     lines = [
         "---",
@@ -613,26 +704,39 @@ def main():
         len(all_papers),
     )
 
-    # ── 3. Analisi AI a batch ─────────────────────────────────────────
+    # ── 3. Triage: screening rapido sui titoli ──────────────────────
     new_results: list[tuple[dict, dict | None]] = []
 
     if to_analyze:
-        log.info("=" * 50)
-        log.info("ANALISI AI (batch da %d)", BATCH_SIZE)
-        log.info("=" * 50)
-
-        # Filtra paper senza abstract prima del batching
+        # Filtra paper senza abstract
         with_abstract = [p for p in to_analyze if p["abstract"]]
         no_abstract = [p for p in to_analyze if not p["abstract"]]
         for p in no_abstract:
             log.info("Skip (no abstract): %s", p["title"][:60])
             cache[_cache_key(p)] = {"relevant": False}
 
-        # Processa a batch
-        for batch_start in range(0, len(with_abstract), BATCH_SIZE):
-            batch = with_abstract[batch_start : batch_start + BATCH_SIZE]
+        log.info("=" * 50)
+        log.info("TRIAGE (screening titoli)")
+        log.info("=" * 50)
+
+        triaged = triage_papers(client, with_abstract)
+
+        # Segna come non rilevanti i paper scartati dal triage
+        triaged_set = {id(p) for p in triaged}
+        for p in with_abstract:
+            if id(p) not in triaged_set:
+                cache[_cache_key(p)] = {"relevant": False}
+
+    # ── 4. Analisi AI a batch (solo paper che passano il triage) ──
+        log.info("=" * 50)
+        log.info("ANALISI AI (batch da %d)", BATCH_SIZE)
+        log.info("=" * 50)
+
+        # Processa a batch solo i paper che hanno passato il triage
+        for batch_start in range(0, len(triaged), BATCH_SIZE):
+            batch = triaged[batch_start : batch_start + BATCH_SIZE]
             batch_num = batch_start // BATCH_SIZE + 1
-            total_batches = (len(with_abstract) + BATCH_SIZE - 1) // BATCH_SIZE
+            total_batches = (len(triaged) + BATCH_SIZE - 1) // BATCH_SIZE
             log.info(
                 "Batch %d/%d (%d paper)",
                 batch_num,
@@ -663,7 +767,7 @@ def main():
         save_cache(cache)
         log.info("Cache salvata (%d voci totali)", len(cache))
 
-    # ── 4. Aggrega risultati (cached + nuovi) ─────────────────────────
+    # ── 5. Aggrega risultati (cached + nuovi) ─────────────────────────
     analyses: list[dict] = []
     all_results = cached_results + new_results
 
@@ -679,13 +783,23 @@ def main():
         analyses.append(result)
 
     analyses.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
-    log.info("Articoli rilevanti: %d/%d", len(analyses), len(all_papers))
+
+    if len(analyses) > MAX_ARTICLES:
+        log.info(
+            "Cap a %d articoli (scartati %d sotto il cutoff score %d)",
+            MAX_ARTICLES,
+            len(analyses) - MAX_ARTICLES,
+            analyses[MAX_ARTICLES - 1].get("relevance_score", 0),
+        )
+        analyses = analyses[:MAX_ARTICLES]
+
+    log.info("Articoli nel digest: %d/%d", len(analyses), len(all_papers))
 
     if not analyses:
         log.warning("Nessun articolo rilevante. Uscita.")
         sys.exit(0)
 
-    # ── 5. TL;DR ─────────────────────────────────────────────────────────
+    # ── 6. TL;DR ─────────────────────────────────────────────────────────
     log.info("=" * 50)
     log.info("GENERAZIONE TL;DR")
     log.info("=" * 50)
@@ -693,7 +807,7 @@ def main():
     tldr = generate_tldr(client, analyses)
     log.info("TL;DR: %s", tldr[:120])
 
-    # ── 6. Output ─────────────────────────────────────────────────────────
+    # ── 7. Output ─────────────────────────────────────────────────────────
     content = build_markdown(args.date, analyses, tldr)
 
     if args.dry_run:
