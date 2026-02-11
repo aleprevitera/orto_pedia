@@ -156,7 +156,7 @@ class _Responses:
             req.add_header("Content-Type", "application/json")
             req.add_header("User-Agent", NCBI_USER_AGENT)
             try:
-                with urllib.request.urlopen(req, timeout=120) as resp:
+                with urllib.request.urlopen(req, timeout=300) as resp:
                     return _Response(json.loads(resp.read()))
             except urllib.error.HTTPError as e:
                 body = e.read().decode(errors="replace")
