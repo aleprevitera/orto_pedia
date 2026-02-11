@@ -41,6 +41,7 @@ jobs:
       - name: Fetch & analyze PubMed articles
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NCBI_EMAIL: "orto_pedia_bot@github.com"
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.date }}" ]; then

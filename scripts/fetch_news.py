@@ -102,6 +102,8 @@ BATCH_SIZE = 5  # Paper per chiamata API (riduce costi system prompt)
 MAX_ARTICLES = 25  # Massimo articoli nel digest finale (top per score)
 MAX_TAGS = 10  # Massimo tag aggregati nel frontmatter
 CACHE_FILE = Path(__file__).resolve().parent / ".news_cache.json"
+NCBI_EMAIL = os.getenv("NCBI_EMAIL", "orto_pedia_bot@github.com")
+NCBI_USER_AGENT = "orto_pedia/1.0 (github.com/aleprevitera/orto_pedia)"
 
 # ─── Logging ─────────────────────────────────────────────────────────────────
 
@@ -114,6 +116,8 @@ log = logging.getLogger("fetch_news")
 
 
 # ─── Raccolta da RSS ─────────────────────────────────────────────────────────
+
+feedparser.USER_AGENT = "orto_pedia/1.0 (+https://github.com/aleprevitera/orto_pedia)"
 
 
 def fetch_from_rss(
@@ -179,6 +183,40 @@ def _extract_from_rss_entry(entry) -> dict:
     }
 
 
+# ─── HTTP helper per NCBI ────────────────────────────────────────────────────
+
+
+def _ncbi_request(url: str, timeout: int = 30) -> bytes:
+    """HTTP GET verso NCBI con User-Agent, email e retry con backoff."""
+    # Aggiungi email se non già presente
+    sep = "&" if "?" in url else "?"
+    if "email=" not in url:
+        url = f"{url}{sep}email={urllib.parse.quote(NCBI_EMAIL)}"
+
+    req = urllib.request.Request(url)
+    req.add_header("User-Agent", NCBI_USER_AGENT)
+
+    last_exc: Exception | None = None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read()
+        except Exception as e:
+            last_exc = e
+            wait = 2**attempt  # 1s, 2s, 4s
+            log.warning(
+                "NCBI request attempt %d/3 failed (%s: %s) — retry in %ds | URL: %s",
+                attempt + 1,
+                type(e).__name__,
+                e,
+                wait,
+                url[:120],
+            )
+            time.sleep(wait)
+
+    raise last_exc  # type: ignore[misc]
+
+
 # ─── Raccolta da E-utilities ─────────────────────────────────────────────────
 
 
@@ -197,7 +235,7 @@ def fetch_from_eutils(
             log.info("  %d PMID trovati", len(pmids))
             fetched = _efetch(pmids)
             papers.extend(fetched)
-            time.sleep(0.4)  # NCBI rate limit: max 3 req/s senza API key
+            time.sleep(0.5)  # NCBI rate limit: max 3 req/s senza API key
         except Exception as e:
             log.error("  Errore E-utilities: %s", e)
     return papers
@@ -215,8 +253,7 @@ def _esearch(query: str, days_back: int, max_results: int) -> list[str]:
         "retmode": "json",
     })
     url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?{params}"
-    with urllib.request.urlopen(url, timeout=30) as resp:
-        data = json.loads(resp.read())
+    data = json.loads(_ncbi_request(url, timeout=30))
     return data.get("esearchresult", {}).get("idlist", [])
 
 
@@ -229,8 +266,7 @@ def _efetch(pmids: list[str]) -> list[dict]:
         "retmode": "xml",
     })
     url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?{params}"
-    with urllib.request.urlopen(url, timeout=60) as resp:
-        xml_data = resp.read()
+    xml_data = _ncbi_request(url, timeout=60)
 
     root = ET.fromstring(xml_data)
     papers = []
@@ -543,7 +579,7 @@ def analyze_batch(
     results = []
     for p in papers:
         results.append(analyze_paper(client, p))
-        time.sleep(0.3)
+        time.sleep(1.5)
     return results
 
 
@@ -669,7 +705,32 @@ def main():
         log.error("Variabile ANTHROPIC_API_KEY non impostata")
         sys.exit(1)
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(
+        api_key=api_key,
+        max_retries=5,
+        timeout=120.0,
+    )
+
+    # ── 0. Connectivity pre-check ────────────────────────────────────────
+    log.info("Verifica connettività...")
+    connectivity_ok = True
+
+    for label, check_url in [
+        ("NCBI", "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/einfo.fcgi"),
+        ("Anthropic", "https://api.anthropic.com"),
+    ]:
+        try:
+            req = urllib.request.Request(check_url)
+            req.add_header("User-Agent", NCBI_USER_AGENT)
+            with urllib.request.urlopen(req, timeout=15):
+                log.info("  %s: OK", label)
+        except Exception as e:
+            log.error("  %s: UNREACHABLE (%s: %s)", label, type(e).__name__, e)
+            connectivity_ok = False
+
+    if not connectivity_ok:
+        log.error("Pre-check fallito: uno o più servizi non raggiungibili")
+        sys.exit(2)
 
     # ── 1. Raccolta paper ────────────────────────────────────────────────
     log.info("=" * 50)
@@ -761,7 +822,7 @@ def main():
                 else:
                     log.info("  [-] %s -> skip", paper["title"][:50])
 
-            time.sleep(0.5)  # Rate limiting tra batch
+            time.sleep(2.0)  # Rate limiting tra batch
 
         # Salva cache aggiornata
         save_cache(cache)
