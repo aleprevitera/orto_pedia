@@ -1,0 +1,42 @@
+---
+tags:
+  - spalla
+  - riabilitazione
+  - pain-management
+---
+
+# Terapia ad onde d'urto extracorporee nella tendinite calcifica della spalla: efficacia e confronti terapeutici
+
+
+!!! question "Domanda"
+    L'ESWT (extracorporeal shock wave therapy) è veramente efficace nel trattamento della tendinite calcifica cronica della spalla rispetto alle alternative terapeutiche?
+
+!!! abstract "Risposta breve"
+    L'ESWT riduce significativamente il dolore e migliora la funzione della spalla nella tendinite calcifica, con dissoluzione parziale o completa delle calcificazioni nel 50-87% dei pazienti. Tuttavia, l'ago-aspirazione ecoguidata con iniezione corticosteroidea risulta superiore per il ripristino della funzione e il sollievo dal dolore in confronto diretto.
+
+!!! info "Evidenze chiave"
+    - **Efficacia del dolore** (10/10 paper concordano): ESWT riduce significativamente il dolore sia nel medio che nel lungo termine, con meccanismo di "washout" dei mediatori infiammatori
+    - **Miglioramento funzionale** (9/10 paper concordano): Constant score e SPADI migliorano consistentemente, con incremento medio di 4.72 punti nella scala Constant/UCLA
+    - **Dissoluzione calcificazioni** (8/10 paper concordano): Scomparsa completa nel 50-87% dei casi, parziale nel 13-50%; rapporto pooled di riassorbimento totale 27.19
+    - **Assenza di effetti avversi significativi** (8/10 paper): La procedura è ben tollerata; nota: la procedura è dolorosa durante l'esecuzione
+    - **Energia terapeutica superiore** (1/10 paper specifico): Energia E2 (0.44 mJ/mm²) più efficace di E1 (0.15 mJ/mm²) nel prevenire recidiva
+    - :warning: **Punto controverso – superiorità non assoluta**: Kim et al. (2014, 100 citazioni) dimostra che l'ago-aspirazione ecoguidata + corticosteroidi è significativamente superiore a ESWT per funzione e dolore
+    - :warning: **Punto debole – successo clinico incompleto**: Hearnden et al. (2009) riporta solo il 45% di pazienti soddisfatti e il 55% richiede comunque chirurgia; Louwerens et al. sottolinea evidenza solo "moderate quality"
+
+!!! tip "Bottom line clinica"
+    **Raccomandazione di prima scelta:** ESWT è indicata come opzione conservativa efficace per tendinite calcifica della spalla, soprattutto quando la calcificazione è visibile e il paziente desidera evitare chirurgia. **Protocollo suggerito:** (1) confermare diagnosi con imaging (ecografia o TC); (2) valutare se calcificazione è calcica (arc-type preferisce ESWT) o non-calcica; (3) applicare ESWT ad alta energia (E2 ≥0.44 mJ/mm²); (4) aspettare 6 mesi per valutazione completa; (5) **alternativa preferibile se disponibile:** considerare ago-aspirazione ecoguidata + iniezione corticosteroidea in prima battuta, che mostra risultati superiori e più rapidi. Evitare TENS mono come terapia comparativa (risultati inferiori). La procedura richiede informed consent per il dolore durante esecuzione.
+
+---
+
+| Paper | Autori | Rivista | Anno | Citazioni | Intervento | Efficacia complessiva | Outcome primari | Note critiche |
+|:---|:---|:---|:---|:---:|:---|:---|:---|:---|
+| [The midterm effectiveness of extracorporeal shockwave therapy in the management of chronic calcific shoulder tendinitis](https://elicit.com/review/fc547a1c-9ff5-4f03-b20a-3b96823078eb/source/ss-34531968) | S. Lee, B. Cheng, K. Grimmer-Somers | Journal of Shoulder and Elbow Surgery | 2011 | 93 | ESWT | Efficace nel medio termine | Riduzione dolore; miglioramento funzione spalla | Alternativa valida alla chirurgia, effetti collaterali minimi |
+| [Effectiveness of radial shock-wave therapy for calcific tendinitis of the shoulder: single-blind, randomized clinical study](https://elicit.com/review/fc547a1c-9ff5-4f03-b20a-3b96823078eb/source/ss-23689338) | A. Cacchio et al. | Physical Therapy | 2006 | 162 | RSWT | Altamente efficace | Scomparsa calcificazioni 86.6%; riduzione parziale 13.4%; miglioramento funzione dopo 4 settimane | RCT; assenza effetti avversi; risultati particolarmente positivi |
+| [Effectiveness of Radial Shockwave Therapy in Calcific and Non-Calcific Tendinopathy of the Shoulder: a Systematic Review and Meta-Analysis](https://elicit.com/review/fc547a1c-9ff5-4f03-b20a-3b96823078eb/source/ss-216442418) | A. Ammendolia et al. | Muscle Ligaments and Tendons Journal | 2020 | 12 | RSWT | Efficace con Evidence moderata | Riduzione dolore: -0.24 (95% CI: -0.43 a -0.05); aumento Constant/UCLA: 4.72 (95% CI: 4.03-5.4); riduzione SPADI: -6.76 (95% CI: -13.3 a -0.48) | Meta-analisi; migliori risultati in tendinopatia calcifica; scomparsa calcificazione >50% |
+| [Shock Wave Therapy for Calcific Tendinitis of the Shoulder](https://elicit.com/review/fc547a1c-9ff5-4f03-b20a-3b96823078eb/source/ss-24365870) | C.-J. Wang, K.D. Yang, F.-S. Wang, H.-H. Chen, J.-W. Wang | American Journal of Sports Medicine | 2003 | 67 | SWT | Altamente efficace | Esiti eccellenti 60.6%; buoni 30.3%; riduzione depositi calcici; bassa recidiva 6.5% | Risultati robusti; follow-up prolungato |
+| [Which method is more effective in treatment of calcific tendinitis in the shoulder? Prospective randomized comparison between ultrasound-guided needling and extracorporeal shock wave therapy](https://elicit.com/review/fc547a1c-9ff5-4f03-b20a-3b96823078eb/source/ss-35357380) | Y.-s. Kim, H.-j. Lee, Y.-V. Kim, C.-G. Kong | Journal of Shoulder and Elbow Surgery | 2014 | 100 | ESWT vs. ago-aspirazione + corticosteroidi | Ago-aspirazione superiore | ASES score, SST, VAS: migliori con ago-aspirazione; entrambi risolvono calcificazioni | **Confronto diretto sfavorevole a ESWT**; elevate citazioni (100) |
+| [Clinical improvement and resorption of calcifications in calcific tendinitis of the shoulder after shock wave therapy at 6 months' follow-up: a systematic review and meta-analysis](https://elicit.com/review/fc547a1c-9ff5-4f03-b20a-3b96823078eb/source/ss-11591867) | F. Ioppolo et al. | Archives of Physical Medicine and Rehabilitation | 2013 | 106 | SWT | Efficace e sostenuta | Riduzione dolore significativa; miglioramento funzione; rapporto pooled riassorbimento totale 27.19; parziale 16.22; effetti mantenuti a 6 mesi | Meta-analisi; mecanismo "washout" chimico; evidenza robustra |
+| [Extracorporeal shock wave therapy in calcific tendinitis of the shoulder](https://elicit.com/review/fc547a1c-9ff5-4f03-b20a-3b96823078eb/source/ss-20382883) | J. Peters, W. Luboldt, W. Schwarz, V. Jacobi, C. Herzog et al. | Skeletal Radiology | 2004 | 93 | ESWT alta vs. bassa energia | Efficace; energia alta superiore | E2 (0.44 mJ/mm²) > E1 (0.15 mJ/mm²); prevenzione recidiva; assenza effetti significativi | Dose-response definita; rilevanza per protocolli futuri |
+| [Extracorporeal shock wave therapy in chronic calcific tendonitis of the shoulder--is it effective?](https://elicit.com/review/fc547a1c-9ff5-4f03-b20a-3b96823078eb/source/ss-2979096) | A. Hearnden, A. Desai, A. Karmegam, M. Flannery | Acta Orthopaedica Belgica | 2009 | 29 | ESWT | Moderatamente efficace; risultati sovrastimati | 45% soddisfatto; aumento Constant 11% a 6 mesi; 55% richiede chirurgia | **Risultati critici**; sottolinea fallimento in metà pazienti; procedura dolorosa |
+| [Evidence for minimally invasive therapies in the management of chronic calcific tendinopathy of the rotator cuff: a systematic review and meta-analysis](https://elicit.com/review/fc547a1c-9ff5-4f03-b20a-3b96823078eb/source/ss-206509793) | J. Louwerens, I. Sierevelt, A. van Noort, M.P. van den Bekerom | Journal of Shoulder and Elbow Surgery | 2014 | 83 | High-energy ESWT | Efficace; evidenza moderata | Sollievo dolore significativo; miglioramento status funzionale | Evidenza moderate-quality; mancano dettagli comparazione vs. iniezioni |
+| [Extracorporeal shock wave therapy for chronic calcific tendinitis of the shoulders: a functional and sonographic study](https://elicit.com/review/fc547a1c-9ff5-4f03-b20a-3b96823078eb/source/ss-1310138) | P. Pan, C. Chou, H. Chiou, H.-L. Ma, H.-C. Lee et al. | Archives of Physical Medicine and Rehabilitation | 2003 | 94 | ESWT vs. TENS | ESWT superiore a TENS | Miglioramento significativo Constant score e VAS; riduzione dimensione depositi calcici; superiore per plache arc-type | Studio comparativo favorevole; specifica efficacia per morfologia calcica |

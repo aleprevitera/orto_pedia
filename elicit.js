@@ -218,7 +218,7 @@ async function scrapeAndShowPopup() {
         return columnNames.map((name, i) => {
             let val = cols[i] || "";
             // Rimuovi markdown/html per il prompt
-            val = val.replace(/<br>/g, " ").replace(/\*\*/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/_/g, "");
+            val = val.replace(/<br>/g, " ").replace(/\*\*/g, "").replace(/_/g, "");
             return `${name}: ${val}`;
         }).join("\n");
     }).join("\n---\n");
@@ -244,16 +244,18 @@ async function scrapeAndShowPopup() {
                     },
                     body: JSON.stringify({
                         model: "claude-haiku-4-5-20251001",
-                        max_tokens: 1024,
+                        max_tokens: 8192,
                         messages: [{
                             role: "user",
-                            content: `Sei un ricercatore esperto. Ti viene data una tabella estratta da Elicit con ${finalRows.size} papers (colonne: ${columnNames.join(", ")}).
+                            content: `Sei un ricercatore esperto in ortopedia. Ti vengono dati i dati estratti da ${finalRows.size} papers di una ricerca sistematica.
+Colonne originali: ${columnNames.join(", ")}
 
-Il tuo compito è generare un output in italiano (~300 parole) in formato Material for MkDocs, che risponda CHIARAMENTE alla domanda di ricerca implicita nei dati.
+HAI DUE COMPITI:
 
-Struttura OBBLIGATORIA (usa ESATTAMENTE questo formato con indentazione di 4 spazi):
+══ COMPITO 1: SINTESI (~300 parole) ══
+Genera in italiano, formato Material for MkDocs, con indentazione di 4 spazi dentro le admonitions:
 
-BLOCCO 1 — Frontmatter YAML (all'inizio):
+BLOCCO 1 — Frontmatter YAML:
 ---
 tags:
   - [distretto anatomico, es: rachide, spalla, ginocchio, anca, piede-caviglia]
@@ -263,7 +265,7 @@ tags:
 BLOCCO 2 — Titolo:
 # [Titolo descrittivo della scheda]
 
-BLOCCO 3 — Admonitions Material (ATTENZIONE: ogni riga di contenuto deve avere 4 spazi di indentazione):
+BLOCCO 3 — Admonitions:
 
 !!! question "Domanda"
     [Deduci e formula in 1 frase la domanda di ricerca]
@@ -279,14 +281,32 @@ BLOCCO 3 — Admonitions Material (ATTENZIONE: ogni riga di contenuto deve avere
 !!! tip "Bottom line clinica"
     **Raccomandazione.** Dettagli operativi: cosa fare, in che ordine, cosa evitare.
 
-REGOLE:
+══ COMPITO 2: TABELLA MARKDOWN ══
+Dopo la sintesi, scrivi --- (separatore) e poi rielabora TUTTI i dati in una tabella markdown.
+
+Regole tabella:
+- Traduci intestazioni e contenuti in italiano (nomi propri, titoli paper e termini tecnici consolidati restano in inglese)
+- Mantieni i link ai paper nel formato [titolo](url)
+- 1 riga = 1 paper, tutte le ${finalRows.size} righe devono essere presenti
+- Pulisci e uniforma i dati (normalizza formati, correggi refusi)
+- NON includere colonne con numeri progressivi (es: #, No., n°) — sono inutili
+- Se un dato manca, scrivi "N/D"
+- Formato: | Col1 | Col2 | ... | con riga separatore |:---|:---|
+
+══ LINGUA: ITALIANO RIGOROSO ══
+TUTTO l'output DEVE essere in italiano. Questo è un requisito assoluto.
+- Traduci OGNI parola inglese in italiano, incluse le celle della tabella, le intestazioni, le admonitions, tutto.
+- Uniche eccezioni ammesse: nomi propri di autori, titoli originali dei paper tra [], sigle universali (RCT, MRI/RM, BMI, p-value, CI, OR, HR, GRADE).
+- Esempi obbligatori: "outcomes" → "esiti", "follow-up" → "follow-up" (accettato come prestito consolidato), "findings" → "risultati", "sample size" → "dimensione campione", "randomized" → "randomizzato", "significant" → "significativo", "evidence" → "evidenza", "low back pain" → "lombalgia", "surgery" → "chirurgia", "treatment" → "trattamento", "patients" → "pazienti", "study design" → "disegno dello studio", "conclusion" → "conclusione".
+- Se trovi frasi miste italiano/inglese, riscrivile interamente in italiano.
+
+══ REGOLE GENERALI ══
 - Sii diretto e assertivo, non diplomatico
 - Se i paper concordano, dillo chiaramente
 - Se c'è disaccordo, spiega chi dice cosa e perché
-- Non ripetere informazioni tra le sezioni
-- CRITICO: rispetta l'indentazione di 4 spazi dentro ogni admonition, altrimenti il rendering si rompe
+- CRITICO: rispetta l'indentazione di 4 spazi dentro ogni admonition
 - NON usare ## heading dentro le admonitions
-- Usa :warning: (emoji shortcode) invece di ⚠️ per i punti deboli
+- Usa :warning: (emoji shortcode) invece di ⚠️
 
 DATI:
 ${plainRows}`
@@ -319,7 +339,7 @@ ${plainRows}`
     }
 
     // --- 6. Assemblaggio output finale ---
-    const mdOutput = `${tldr}\n\n---\n\n${tableMarkdown}`;
+    const mdOutput = tldr || `> Errore nella generazione automatica. Tabella grezza di fallback:\n\n${tableMarkdown}`;
 
     // --- 7. Creazione Interfaccia Popup (Overlay) ---
     const oldPopup = document.getElementById('elicit-md-popup');
