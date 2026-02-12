@@ -13,7 +13,7 @@ tags:
   - THA
 ---
 
-# Rassegna Settimanale — 11-02-2026
+# Rassegna Settimanale — 12-02-2026
 
 > **TL;DR** — Questa settimana la letteratura ortopedica evidenzia come il posizionamento e il design degli impianti, supportati da tecnologie avanzate come robotica e navigazione aumentata, incidano significativamente sugli esiti, sulle complicanze e sui tassi di revisione in artroplastica e ricostruzioni legamentose. Fattori perioperatori critici, tra cui fumo, nicotina e gestione delle trasfusioni, restano determinanti per il rischio di infezione precoce, la mobilità postoperatoria e i tempi di recupero. Inoltre emergono strumenti predittivi e metriche di outcome—tra cui modelli di apprendimento automatico e punteggi clinici mirati—per guidare le decisioni terapeutiche e i percorsi riabilitativi, con attenzione anche agli effetti della salute mentale sui risultati chirurgici.
 
